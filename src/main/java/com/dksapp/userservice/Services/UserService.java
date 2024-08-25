@@ -6,7 +6,9 @@ import com.dksapp.userservice.Models.Role;
 import com.dksapp.userservice.Models.User;
 import com.dksapp.userservice.Repositories.RoleRepository;
 import com.dksapp.userservice.Repositories.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -16,14 +18,14 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
-    @Autowired
     private final UserRepository userRepository;
-    @Autowired
     private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, RoleRepository roleRepository) {
+    public UserService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<ResponseDTO> findAll() {
@@ -41,11 +43,14 @@ public class UserService {
         return responseDTOs;
     }
 
-    public User addUser(UserDetailsDTO userDetailsDTO) {
+    public ResponseEntity<User> addUser(UserDetailsDTO userDetailsDTO) {
+        if(userRepository.findByUserName(userDetailsDTO.getUserName())!=null){
+            return new ResponseEntity<>(HttpStatus.NOT_ACCEPTABLE);
+        }
         User user = new User();
         List<Role> roles = new ArrayList<>();
         user.setUserName(userDetailsDTO.getUserName());
-        user.setPassword(userDetailsDTO.getPassword());
+        user.setPassword(passwordEncoder.encode(userDetailsDTO.getPassword()));
         user.setEmail(userDetailsDTO.getEmail());
         user.setAddress(userDetailsDTO.getAddress());
         user.setPhone(userDetailsDTO.getPhone());
@@ -63,7 +68,7 @@ public class UserService {
         }
         user.setRole(roles);
         userRepository.save(user);
-        return user;
+        return new ResponseEntity<>(user,HttpStatus.CREATED);
     }
 
 }
