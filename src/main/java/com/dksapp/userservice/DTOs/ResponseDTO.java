@@ -2,7 +2,6 @@ package com.dksapp.userservice.DTOs;
 
 import lombok.Getter;
 import lombok.Setter;
-
 import java.util.Set;
 
 @Getter

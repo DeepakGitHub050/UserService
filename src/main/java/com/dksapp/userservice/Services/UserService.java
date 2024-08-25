@@ -1,13 +1,8 @@
 package com.dksapp.userservice.Services;
 
-import com.dksapp.userservice.DTOs.ResponseDTO;
-import com.dksapp.userservice.DTOs.UserDetailsDTO;
-import com.dksapp.userservice.Models.Role;
-import com.dksapp.userservice.Models.Token;
-import com.dksapp.userservice.Models.User;
-import com.dksapp.userservice.Repositories.RoleRepository;
-import com.dksapp.userservice.Repositories.TokenRepository;
-import com.dksapp.userservice.Repositories.UserRepository;
+import com.dksapp.userservice.DTOs.*;
+import com.dksapp.userservice.Models.*;
+import com.dksapp.userservice.Repositories.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -63,7 +58,6 @@ public class UserService {
             t.setIsDeleted(1);
             tokenRepository.save(t);
         }
-        return;
     }
 
     public boolean validateToken(String token) {
@@ -71,23 +65,24 @@ public class UserService {
         if (t == null) {
             return false;
         }
-        if (t.getIsDeleted() == 1) {
-            return false;
-        }
-        return true;
+        return t.getIsDeleted() != 1;
+    }
+
+    public ResponseDTO userToResponseDTO(User user) {
+        ResponseDTO responseDTO = new ResponseDTO();
+        responseDTO.setUserName(user.getUserName());
+        responseDTO.setEmail(user.getEmail());
+        responseDTO.setRole(user.getRole().stream().map(Role::getName).collect(Collectors.toSet()));
+        responseDTO.setPhone(user.getPhone());
+        responseDTO.setAddress(user.getAddress());
+        return responseDTO;
     }
 
     public List<ResponseDTO> findAll() {
         List<User> users =userRepository.findAll();
         List<ResponseDTO> responseDTOs = new ArrayList<>();
         for (User user : users) {
-            ResponseDTO responseDTO = new ResponseDTO();
-            responseDTO.setUserName(user.getUserName());
-            responseDTO.setEmail(user.getEmail());
-            responseDTO.setRole(user.getRole().stream().map(Role::getName).collect(Collectors.toSet()));
-            responseDTO.setPhone(user.getPhone());
-            responseDTO.setAddress(user.getAddress());
-            responseDTOs.add(responseDTO);
+            responseDTOs.add(userToResponseDTO(user));
         }
         return responseDTOs;
     }
@@ -97,20 +92,10 @@ public class UserService {
         if (user == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        ResponseDTO responseDTO = new ResponseDTO();
-        responseDTO.setUserName(user.getUserName());
-        responseDTO.setEmail(user.getEmail());
-        responseDTO.setRole(user.getRole().stream().map(Role::getName).collect(Collectors.toSet()));
-        responseDTO.setPhone(user.getPhone());
-        responseDTO.setAddress(user.getAddress());
-        return new ResponseEntity<>(responseDTO, HttpStatus.OK);
+        return new ResponseEntity<>(userToResponseDTO(user), HttpStatus.OK);
     }
 
-    public ResponseEntity<User> addUser(UserDetailsDTO userDetailsDTO) {
-        if(userRepository.findByUserName(userDetailsDTO.getUserName())!=null){
-            return new ResponseEntity<>(HttpStatus.NOT_ACCEPTABLE);
-        }
-        User user = new User();
+    public User userDetailsDTOToUser(User user,UserDetailsDTO userDetailsDTO) {
         List<Role> roles = new ArrayList<>();
         user.setUserName(userDetailsDTO.getUserName());
         user.setPassword(passwordEncoder.encode(userDetailsDTO.getPassword()));
@@ -130,6 +115,14 @@ public class UserService {
             }
         }
         user.setRole(roles);
+        return user;
+    }
+
+    public ResponseEntity<User> addUser(UserDetailsDTO userDetailsDTO) {
+        if(userRepository.findByUserName(userDetailsDTO.getUserName())!=null){
+            return new ResponseEntity<>(HttpStatus.NOT_ACCEPTABLE);
+        }
+        User user = userDetailsDTOToUser(new User(),userDetailsDTO);
         userRepository.save(user);
         return new ResponseEntity<>(user,HttpStatus.CREATED);
     }
@@ -139,27 +132,9 @@ public class UserService {
         if(user==null){
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        List<Role> roles = new ArrayList<>();
-        user.setUserName(userDetailsDTO.getUserName());
-        user.setPassword(passwordEncoder.encode(userDetailsDTO.getPassword()));
-        user.setEmail(userDetailsDTO.getEmail());
-        user.setAddress(userDetailsDTO.getAddress());
-        user.setPhone(userDetailsDTO.getPhone());
-        for(String r:userDetailsDTO.getRole()){
-            Role role = roleRepository.findByName(r);
-            if(role != null){
-                roles.add(role);
-            }
-            else {
-                Role newRole = new Role();
-                newRole.setName(r);
-                roles.add(newRole);
-                roleRepository.save(newRole);
-            }
-            user.setRole(roles);
-            userRepository.save(user);
-        }
-        return new ResponseEntity<>(user,HttpStatus.OK);
+        User usr = userDetailsDTOToUser(user,userDetailsDTO);
+        userRepository.save(usr);
+        return new ResponseEntity<>(usr,HttpStatus.OK);
     }
 
     public ResponseEntity<String> deleteUser(String userName) {
